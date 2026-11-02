@@ -58,6 +58,20 @@ class StateIntegrationTests(unittest.TestCase):
             self.assertEqual(self.state_path.read_bytes(), original_bytes)
             send.assert_not_called()
 
+    def test_scheduled_price_test_notifies_for_unchanged_price_below_temporary_threshold(self):
+        with patch("shopby_monitor.main.send_telegram_message", return_value=42) as send:
+            process_price(Decimal("3400"), self.state_path, Decimal("3000"))
+            process_price(Decimal("3400"), self.state_path, Decimal("3450"), notify_current_price=True)
+            send.assert_called_once()
+            self.assertIn("Тестовая проверка реальной цены", send.call_args.args[0])
+            self.assertIn("3400.00 BYN", send.call_args.args[0])
+        self.assertEqual(load_state(self.state_path)["last_notified_price"], "3400.00")
+
+    def test_scheduled_price_test_still_respects_strict_threshold(self):
+        with patch("shopby_monitor.main.send_telegram_message") as send:
+            process_price(Decimal("3450"), self.state_path, Decimal("3450"), notify_current_price=True)
+            send.assert_not_called()
+
     def test_corrupt_or_missing_state_never_silently_resets(self):
         self.state_path.write_text("broken", encoding="utf-8")
         with self.assertRaises(MonitorError):

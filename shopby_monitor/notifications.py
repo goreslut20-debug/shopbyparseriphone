@@ -15,8 +15,9 @@ def should_notify(
     )
 
 
-def notification_text(current_minimum_price: Decimal) -> str:
+def notification_text(current_minimum_price: Decimal, *, scheduled_test: bool = False) -> str:
+    heading = "Тестовая проверка реальной цены." if scheduled_test else "Цена снизилась ниже порога!"
     return (
-        f"Цена снизилась ниже порога!\n{PRODUCT_NAME}\n"
+        f"{heading}\n{PRODUCT_NAME}\n"
         f"Текущая минимальная цена: {current_minimum_price:.2f} BYN\n{PRODUCT_URL}"
     )
