@@ -88,9 +88,13 @@ jobs:
             fi
             sleep 3
             git fetch origin "$DEFAULT_BRANCH"
-            git -c user.name='github-actions[bot]' \
-                -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-                rebase "origin/${DEFAULT_BRANCH}"
+            if ! git -c user.name='github-actions[bot]' \
+                     -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+                     rebase "origin/${DEFAULT_BRANCH}"; then
+              git rebase --abort
+              printf '%s\n' 'Конфликт изменений. Локальный JSON восстановлен для recovery artifact.' >&2
+              exit 1
+            fi
           done
           printf '%s\n' 'Не удалось загрузить JSON. Скачайте recovery artifact перед повторным запуском.' >&2
           exit 1
