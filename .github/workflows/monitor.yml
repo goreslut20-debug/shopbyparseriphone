@@ -1,0 +1,105 @@
+name: Shop.by price monitor
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Только проверить реальную цену: без Telegram и изменения JSON'
+        type: boolean
+        default: false
+      test_telegram:
+        description: 'Только отправить тест связи в Telegram: без проверки цены и изменения JSON'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shopby-price-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout latest default branch and current state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Run offline regression tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Check price or run an explicitly selected diagnostic
+        id: check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PRICE_THRESHOLD_BYN: '3000.00'
+          DRY_RUN: ${{ inputs.dry_run || false }}
+          TEST_TELEGRAM: ${{ inputs.test_telegram || false }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$DRY_RUN" == "true" && "$TEST_TELEGRAM" == "true" ]]; then
+            printf '%s\n' 'Выберите только один диагностический режим.' >&2
+            exit 1
+          fi
+          if [[ "$TEST_TELEGRAM" == "true" ]]; then
+            python -m shopby_monitor.main --test-telegram
+          elif [[ "$DRY_RUN" == "true" ]]; then
+            python -m shopby_monitor.main --dry-run
+          else
+            python -m shopby_monitor.main
+          fi
+
+      - name: Commit and push changed JSON state
+        if: ${{ inputs.dry_run != true && inputs.test_telegram != true }}
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- state/price_state.json; then
+            printf '%s\n' 'Состояние не изменилось; коммит не нужен.'
+            exit 0
+          fi
+          git add -- state/price_state.json
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'Update Shop.by price state'
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:${DEFAULT_BRANCH}"; then
+              printf '%s\n' 'JSON состояния успешно сохранён в репозитории.'
+              exit 0
+            fi
+            if [[ "$attempt" == 3 ]]; then
+              break
+            fi
+            sleep 3
+            git fetch origin "$DEFAULT_BRANCH"
+            git -c user.name='github-actions[bot]' \
+                -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+                rebase "origin/${DEFAULT_BRANCH}"
+          done
+          printf '%s\n' 'Не удалось загрузить JSON. Скачайте recovery artifact перед повторным запуском.' >&2
+          exit 1
+
+      - name: Preserve state for recovery after a failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: price-state-recovery-${{ github.run_id }}
+          path: state/price_state.json
+          if-no-files-found: warn
+          retention-days: 30
