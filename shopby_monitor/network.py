@@ -58,6 +58,31 @@ def telegram_credentials() -> tuple[str, str]:
     return bot_token, chat_id
 
 
+def telegram_failure_detail(error: urllib.error.HTTPError) -> str:
+    """Translate known refusal reasons; never expose Telegram's raw response."""
+    try:
+        payload = json.loads(error.read(65536))
+        description = payload.get("description", "") if isinstance(payload, dict) else ""
+        if not isinstance(description, str):
+            return ""
+        description = description.lower()
+    except (ValueError, UnicodeError, OSError):
+        return ""
+    finally:
+        error.close()
+    explanations = (
+        ("blocked by the user", "Бот заблокирован получателем. Разблокируйте его и отправьте /start."),
+        ("can't initiate conversation", "Откройте этого бота в Telegram и отправьте /start."),
+        ("bots can't send messages to bots", "Указан ID другого бота; нужен ID пользователя, группы или канала."),
+        ("user is deactivated", "Аккаунт получателя деактивирован; проверьте chat ID."),
+        ("bot was kicked", "Бот удалён из чата; добавьте его обратно и разрешите отправку сообщений."),
+        ("bot is not a member", "Добавьте бота в указанный чат и разрешите отправку сообщений."),
+        ("not enough rights", "Разрешите боту отправлять сообщения в указанную группу или канал."),
+        ("chat not found", "Проверьте chat ID и отправьте /start существующему боту."),
+    )
+    return next((explanation for marker, explanation in explanations if marker in description), "")
+
+
 def send_telegram_message(message_text: str) -> int:
     bot_token, chat_id = telegram_credentials()
     request = urllib.request.Request(
@@ -77,9 +102,10 @@ def send_telegram_message(message_text: str) -> int:
         payload = json.loads(response_bytes)
     except urllib.error.HTTPError as error:
         status_code = error.code
-        error.close()
+        detail = telegram_failure_detail(error)
         raise MonitorError(
-            f"Telegram вернул HTTP {status_code}. Проверьте Secrets и доступ бота к чату."
+            f"Telegram вернул HTTP {status_code}. "
+            + (detail or "Проверьте Secrets и доступ бота к чату.")
         ) from None
     except (urllib.error.URLError, TimeoutError, OSError):
         raise MonitorError(

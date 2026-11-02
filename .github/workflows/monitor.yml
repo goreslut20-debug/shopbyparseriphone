@@ -3,8 +3,8 @@ name: Shop.by price monitor
 on:
   schedule:
     - cron: '17 * * * *'
-    # 2026-11-02 14:25 Europe/Minsk = 11:25 UTC. Date guard below prevents annual sends.
-    - cron: '25 11 2 11 *'
+    # 2026-11-02 14:33 Europe/Minsk = 11:33 UTC. Date guard below prevents annual sends.
+    - cron: '33 11 2 11 *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -55,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           MINSK_DATE="$(TZ=Europe/Minsk date +%F)"
-          if [[ "$SCHEDULE" == '25 11 2 11 *' && "$MINSK_DATE" != '2026-11-02' ]]; then
+          if [[ "$SCHEDULE" == '33 11 2 11 *' && "$MINSK_DATE" != '2026-11-02' ]]; then
             printf '%s\n' 'Одноразовая проверка 2026-11-02 истекла; отправки не будет.'
             exit 0
           fi

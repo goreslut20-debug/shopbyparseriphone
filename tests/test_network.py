@@ -57,6 +57,27 @@ class TelegramTests(unittest.TestCase):
                 send_telegram_message("hello")
             opener.assert_not_called()
 
+    @patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": "private-token", "TELEGRAM_CHAT_ID": "private-chat"})
+    def test_telegram_refusal_explains_action_without_exposing_response(self):
+        descriptions = (
+            ("Forbidden: bot was blocked by the user private-token", "Разблокируйте"),
+            ("Forbidden: bots can't send messages to bots private-chat", "ID другого бота"),
+            ("private-token private-chat", "Проверьте Secrets"),
+        )
+        for description, expected in descriptions:
+            with self.subTest(description=description), patch(
+                "shopby_monitor.network.urllib.request.build_opener"
+            ) as opener:
+                body = io.BytesIO(json.dumps({"ok": False, "description": description}).encode())
+                opener.return_value.open.side_effect = urllib.error.HTTPError(
+                    "https://api.telegram.org/botprivate-token/sendMessage", 403, "Forbidden", {}, body
+                )
+                with self.assertRaises(MonitorError) as raised:
+                    send_telegram_message("ordinary alert")
+                self.assertIn(expected, str(raised.exception))
+                self.assertNotIn("private-token", str(raised.exception))
+                self.assertNotIn("private-chat", str(raised.exception))
+
     def test_unexpected_exception_does_not_leak_secrets_in_cli(self):
         stderr = io.StringIO()
         with (
