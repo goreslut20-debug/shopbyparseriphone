@@ -13,21 +13,23 @@ https://shop.by/televizory_zhk/xiaomi_tv_s_pro_mini_led_75_2026_l75mb_sru_mezhdu
 не нужны: проверка выполняется в GitHub Actions каждый час. Python 3.12+;
 сторонних Python-зависимостей нет.
 
-### Что проверено при первоначальной настройке
+### Подтверждённые результаты проверок
 
-- [32 теста прошли в GitHub Actions на Python 3.12 и 3.14](https://github.com/goreslut20-debug/shopbyparseriphone/actions/runs/41422907821).
+- [38 тестов прошли в GitHub Actions на Python 3.12 и 3.14](https://github.com/goreslut20-debug/shopbyparseriphone/actions/runs/41437181287).
 - [Пробный запуск из GitHub Actions](https://github.com/goreslut20-debug/shopbyparseriphone/actions/runs/41422911880)
   успешно прочитал полную реальную страницу и извлёк **3400.00 BYN**.
 - YAML workflow проверен `actionlint 1.7.12` без ошибок.
 - Сохранение состояния проверяется также интеграционными тестами на временном
   локальном Git-репозитории: успешный push, неизменная цена и конфликт обновлений.
-- [Обычный запуск](https://github.com/goreslut20-debug/shopbyparseriphone/actions/runs/41423083784)
-  обнаружил отсутствие доступных `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID`;
-  остановился без отправки и изменения состояния, recovery artifact сохранён.
+- [Обычный запуск 2026-11-02 в 14:33 по Минску](https://github.com/goreslut20-debug/shopbyparseriphone/actions/runs/41437710785)
+  подтвердил всю цепочку: реальная цена **3400.00 BYN**, временный порог **4000.00 BYN**,
+  штатное уведомление принято Telegram, JSON сохранён и автоматически отправлен в GitHub.
+- Коммит состояния: [`7c7a4cd`](https://github.com/goreslut20-debug/shopbyparseriphone/commit/7c7a4cd).
+  При задержке cron обычный workflow был вызван через `workflow_dispatch` в 14:33:02;
+  подтверждение Telegram получено в 14:33:16. Диагностические режимы были выключены.
 
-Реальная доставка в Telegram и автоматический `push` обновлённого JSON пока
-не подтверждены: завершите шаги 1–4 ниже. Красный результат этого первого
-обычного запуска объясняется отсутствующими Secrets.
+Оба Telegram Secrets настроены. Инструкции ниже нужны при повторной настройке
+или смене бота/получателя.
 
 ## Временный тест 2 ноября 2026
 
