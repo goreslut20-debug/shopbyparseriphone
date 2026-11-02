@@ -3,8 +3,6 @@ name: Shop.by price monitor
 on:
   schedule:
     - cron: '17 * * * *'
-    # 2026-11-02 14:33 Europe/Minsk = 11:33 UTC. Date guard below prevents annual sends.
-    - cron: '33 11 2 11 *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -50,18 +48,9 @@ jobs:
           PRICE_THRESHOLD_BYN: '3000.00'
           DRY_RUN: ${{ inputs.dry_run || false }}
           TEST_TELEGRAM: ${{ inputs.test_telegram || false }}
-          SCHEDULE: ${{ github.event.schedule || '' }}
         shell: bash
         run: |
           set -euo pipefail
-          MINSK_DATE="$(TZ=Europe/Minsk date +%F)"
-          if [[ "$SCHEDULE" == '33 11 2 11 *' && "$MINSK_DATE" != '2026-11-02' ]]; then
-            printf '%s\n' 'Одноразовая проверка 2026-11-02 истекла; отправки не будет.'
-            exit 0
-          fi
-          if [[ "$MINSK_DATE" == '2026-11-02' ]]; then
-            export PRICE_THRESHOLD_BYN='4000.00'
-          fi
           if [[ "$DRY_RUN" == "true" && "$TEST_TELEGRAM" == "true" ]]; then
             printf '%s\n' 'Выберите только один диагностический режим.' >&2
             exit 1
